@@ -143,7 +143,8 @@ int main(void)
     joy_install(&joy_static_stddrv);
     lynx_snd_init();
     CLI();
-
+    LynxSD_Init();
+	
 	readSaveData();
 	if(strcmp((char*)saveBuf,EEPROM_MAGIC)!=0)
 		resetSaveData();

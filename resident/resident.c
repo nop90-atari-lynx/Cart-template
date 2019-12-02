@@ -11,6 +11,7 @@
 #include "LynxSD.h"
 
 #define EEPROM_MAGIC "GAME" // Change this to your own string. 3-5 chars are fine.
+#define ISEMULATOR 0xfd97 // Fake register used to know if running on emlator (Handy based). Handy returns 42 insted of 0xFF 
 
 signed char SDCheck = -1; // tracks if there is a SD cart with saves enabled. -1 = No check yet, 0 = no SD saves, 1 = SD saves possible 
 const char SDSavePath[] = "/saves/game.sav"; //rename game.sav to yourprogramname.sav, i.e. the same name of your lnx file
@@ -79,8 +80,15 @@ void writeSaveData(void)
 void readSaveData(void)
 {
 	unsigned char i;
+	unsigned char * isEmulator = ISEMULATOR;
+
 	FRESULT res;
 
+// Handy returns 42 reading this fake register. If the code is run in Handy we don't use SD because Handy old code hangs.
+// New emulators based on handy seems to have this fixed
+	if(*isEmulator!=0xFF)  
+		SDCheck=0;
+		
 	if(SDCheck==-1) // SD not tested yet
 	{
 		res = LynxSD_OpenFileTimeout(SDSavePath); 
@@ -127,7 +135,7 @@ void resetSaveData(void)
     int i;
     saveBuf[3]=0;
     strcpy((char*)saveBuf,EEPROM_MAGIC);
-	for(i=14;i<=64;i++)
+	for(i=14;i<64;i++)
 	{
 		saveBuf[i]=0; //instead of this you could initialize the savedata with some starting values, like a predefined highscores table.
 	}
@@ -143,7 +151,7 @@ int main(void)
     joy_install(&joy_static_stddrv);
     lynx_snd_init();
     CLI();
-    LynxSD_Init();
+	LynxSD_Init();    
 	
 	readSaveData();
 	if(strcmp((char*)saveBuf,EEPROM_MAGIC)!=0)

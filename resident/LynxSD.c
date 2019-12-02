@@ -105,7 +105,7 @@ static void __fastcall__ WriteString(const char *pStr)
 void LynxSD_Init()
 {
 	*IODIR = 0; // all input
-//	*CART1 = 0xaa; // initialise cart comms
+//	*CART1 = 0xaa; // initialise cart comms. This line was removed in the last code revision
 }
 
 void LynxSD_LowPowerMode()

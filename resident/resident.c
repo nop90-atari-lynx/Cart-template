@@ -12,6 +12,7 @@
 
 #define EEPROM_MAGIC "GAME" // Change this to your own string. 3-5 chars are fine.
 #define ISEMULATOR 0xfd97 // Fake register used to know if running on emlator (Handy based). Handy returns 42 insted of 0xFF 
+#define IODIR ((volatile unsigned char *) 0xFD8A)
 
 signed char SDCheck = -1; // tracks if there is a SD cart with saves enabled. -1 = No check yet, 0 = no SD saves, 1 = SD saves possible 
 const char SDSavePath[] = "/saves/game.sav"; //rename game.sav to yourprogramname.sav, i.e. the same name of your lnx file
@@ -84,23 +85,29 @@ void readSaveData(void)
 
 	FRESULT res;
 
-// Handy returns 42 reading this fake register. If the code is run in Handy we don't use SD because Handy old code hangs.
-// New emulators based on handy seems to have this fixed
-	if(*isEmulator!=0xFF)  
-		SDCheck=0;
-		
 	if(SDCheck==-1) // SD not tested yet
 	{
-		res = LynxSD_OpenFileTimeout(SDSavePath); 
-		if(res == FR_OK)
-			SDCheck=2; // SD savefile is ok and next SD access doesn't need to open the file (already opened)
-  		else if(res==FR_DISK_ERR) // SD read Timeout -> NO SD
+		if(*isEmulator!=0xFF)
 		{
-			SDCheck=0; // Try to use EEPROM, if there isn't an EEPROM the functions calls are safe because they don't freeze the code 
+			// Handy returns 42 reading this fake register. If the code is run in Handy we don't use SD because Handy old code hangs.
+			// New emulators based on handy seems to have this fixed
+			SDCheck=0;
 		}
-		else	
+		else
 		{
-			SDCheck=-2; // The SD answers, but there is no sav file, or some other problem occoured accessing the file -> don't try to use SD and EEPROM anymore (EEPROM calls on SD frezes the code)
+			LynxSD_Init();
+			res = LynxSD_OpenFileTimeout(SDSavePath); 
+			if(res == FR_OK)
+				SDCheck=2; // SD savefile is ok and next SD access doesn't need to open the file (already opened)
+			else if(res==FR_DISK_ERR) // SD read Timeout -> NO SD
+			{
+				SDCheck=0; // Try to use EEPROM, if there isn't an EEPROM the functions calls are safe because they don't freeze the code 
+				*IODIR = 0xFF; // LynxSD_Init() sets IODIR to 0 that blocks emulated eeprom on emulators, so we set it to 0xFF again before reading the eeprom.
+			}
+			else	
+			{
+				SDCheck=-2; // The SD answers, but there is no sav file, or some other problem occoured accessing the file -> don't try to use SD and EEPROM anymore (EEPROM calls on SD frezes the code)
+			}
 		}
 	}
 
@@ -151,7 +158,6 @@ int main(void)
     joy_install(&joy_static_stddrv);
     lynx_snd_init();
     CLI();
-	LynxSD_Init();    
 	
 	readSaveData();
 	if(strcmp((char*)saveBuf,EEPROM_MAGIC)!=0)
